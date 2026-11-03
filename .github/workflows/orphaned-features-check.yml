@@ -15,6 +15,8 @@ on:
       - 'src/data-directory/scripts/find-orphaned-features/**'
       - .github/actions/clone-translations/action.yml
       - .github/actions/get-docs-early-access/action.yml
+      - src/early-access/scripts/merge-early-access.sh
+      - src/early-access/scripts/what-docs-early-access-branch.ts
       - .github/actions/node-npm-setup/action.yml
 
 permissions:
