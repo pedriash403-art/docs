@@ -4,7 +4,7 @@
 
 # Update the base image digest from the gh-base-noble package page:
 # https://github.com/github/gh-base-image/pkgs/container/gh-base-image%2Fgh-base-noble
-FROM ghcr.io/github/gh-base-image/gh-base-noble:20261007-171807-gaf2071665@sha256:57e57e0d0dd8cf12cbf047aa5ae7ead850f562bc66bace621598a460b803efc7 AS base
+FROM ghcr.io/github/gh-base-image/gh-base-noble:20261028-150140-g8ff90a672@sha256:2f8cb0ab06a0547bd9d70a81829f680208e7e6852d1e6abc1f68569d414e3d00 AS base
 # Install curl for NodeSource setup.
 # Install git for early-access and translation clones.
 # Ubuntu's nodejs package lags the Node LTS release line.
@@ -15,9 +15,11 @@ RUN --mount=type=secret,id=pkg-mirror-host,target=/etc/pkg_mirror_host.txt \
   if [ -f /etc/pkg_mirror_host.txt ]; then cat /etc/pkg_mirror_host.txt >> /etc/apt/mirrorlist.txt; fi
 RUN --mount=type=secret,id=apt-auth-conf,target=/etc/apt/auth.conf.d/apt_auth.conf \
   apt-get -qq update && apt-get -qq install --no-install-recommends curl git \
-  && curl -sL https://deb.nodesource.com/setup_24.x | bash - \
+  && curl -sL https://deb.nodesource.com/setup_26.x | bash - \
   && apt-get install -y nodejs \
   && node --version
+# Fail the build unless NodeSource installed Node 26.x at 26.12.1 or later (CVE-2026-111497 brotli decoder fix).
+RUN node -e 'const [maj, min, pat] = process.versions.node.split(".").map(Number); if (maj !== 26 || min < 12 || (min === 12 && pat < 1)) { throw new Error("Node 26.x >= 26.12.1 required (brotli CVE-2026-111497), got " + process.versions.node); }'
 # Stages built FROM base inherit this ARG, so every later stage can use APP_HOME.
 ARG APP_HOME="/home/node/app"
 RUN useradd -ms /bin/bash node \
@@ -43,7 +45,6 @@ FROM base AS all_deps
 USER node:node
 WORKDIR $APP_HOME
 COPY --chown=node:node package.json package-lock.json ./
-COPY --chown=node:node patches patches/
 RUN npm ci --registry https://registry.npmjs.org/
 
 FROM all_deps AS prod_deps
@@ -79,7 +80,7 @@ COPY --chown=node:node --from=clones $APP_HOME/content content/
 COPY --chown=node:node --from=clones $APP_HOME/translations translations/
 COPY --chown=node:node --from=prod_deps $APP_HOME/node_modules node_modules/
 COPY --chown=node:node --from=build $APP_HOME/.next .next/
-COPY --chown=node:node --from=warmup_cache $APP_HOME/.remotejson-cache ./
+COPY --chown=node:node --from=warmup_cache $APP_HOME/.remotejson-cache .remotejson-cache/
 # Expose the build SHA at runtime when callers pass --build-arg BUILD_SHA=abc123.
 ARG BUILD_SHA
 ENV BUILD_SHA=$BUILD_SHA

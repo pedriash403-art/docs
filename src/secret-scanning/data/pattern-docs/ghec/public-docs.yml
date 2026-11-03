@@ -2654,6 +2654,16 @@
   hasExtendedMetadata: false
   base64Supported: false
   isduplicate: false
+- provider: Hex
+  supportedSecret: Hex API key
+  secretType: hexpm_api_key
+  isPublic: true
+  isPrivateWithGhas: false
+  hasPushProtection: false
+  hasValidityCheck: false
+  hasExtendedMetadata: false
+  base64Supported: false
+  isduplicate: false
 - provider: Highnote
   supportedSecret: Highnote RK Live Key
   secretType: highnote_rk_live_key
@@ -4648,7 +4658,7 @@
   supportedSecret: Starlink Public API V2 Client Secret
   secretType: starlink_public_api_v2_secret
   isPublic: true
-  isPrivateWithGhas: false
+  isPrivateWithGhas: true
   hasPushProtection: false
   hasValidityCheck: false
   hasExtendedMetadata: false

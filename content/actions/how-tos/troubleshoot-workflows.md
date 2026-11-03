@@ -136,6 +136,10 @@ A common cause can be using the `always()` [status check function](/actions/refe
 
 For more information, see [AUTOTITLE](/actions/how-tos/write-workflows/choose-when-workflows-run/control-jobs-with-conditions) and [AUTOTITLE](/actions/how-tos/manage-workflow-runs/cancel-a-workflow-run).
 
+If a run remains queued or in progress after cancellation attempts, it may be stuck in an abnormal state rather than continuing because of `always()`. Signs include no jobs being created, the UI displaying "Failed to cancel workflow", or the `cancel` or `force-cancel` REST API endpoints returning HTTP `500` or `409`.
+
+Self-service cancellation, including force cancellation, may not clear a stuck or out-of-sync workflow run or check suite. If your repository uses concurrency, the stuck run can continue blocking later runs in the same concurrency group. In this situation, contact {% data variables.contact.contact_support %} for help clearing the run.
+
 ## Troubleshooting runners
 
 ### Defining runner labels
@@ -155,6 +159,41 @@ For more information, see [AUTOTITLE](/actions/how-tos/manage-runners/self-hoste
 ### Runner IP addresses flagged by security scanners
 
 {% data reusables.actions.runner-ip-reputation %}
+
+### Azure SDK authentication failures
+
+Applications using Azure SDK `DefaultAzureCredential` can fail to authenticate on runners in the multi-cloud compute pool, even when a preceding `azure/login` step succeeds.
+
+AWS EC2 and Azure expose their instance metadata services at the same address, `169.254.169.254`. Some Azure Identity SDKs interpret the EC2 metadata response as an Azure managed identity authentication failure. This stops the credential chain before it tries the Azure CLI session established by `azure/login`.
+
+The error can include:
+
+```text
+DefaultAzureCredential: failed to acquire a token.
+ManagedIdentityCredential authentication failed.
+GET http://169.254.169.254/metadata/identity/oauth2/token
+RESPONSE 401: 401 Unauthorized
+```
+
+If your application should use the Azure CLI session established by `azure/login`, select `AzureCLICredential` explicitly. For Go applications using the Azure Identity `azidentity` module version 1.11.0 or later, set `AZURE_TOKEN_CREDENTIALS` on the application step after a successful login:
+
+```yaml
+- name: Run application
+  env:
+    AZURE_TOKEN_CREDENTIALS: AzureCLICredential
+  run: ./application
+```
+
+Replace `./application` with the command that runs your application.
+
+Alternatively, use one of these approaches:
+
+* Construct `AzureCLICredential` directly in your application.
+* Fully configure environment or workload identity credentials, which are evaluated before managed identity.
+
+A successful `azure/login` step does not by itself configure the SDK's workload identity credential.
+
+Support for restricting `DefaultAzureCredential` varies by language and package version. For the Go configuration and credential order, see [Credential chains in the Azure Identity library for Go](https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains). For other languages, consult the documentation for your application's Azure Identity SDK version.
 
 {% endif %}
 
@@ -205,6 +244,8 @@ If your {% data variables.product.github %} account is configured with an IP all
 
 {% ifversion fpt or ghec %}
 For information on {% data variables.product.github %}'s IP addresses, such as those used by {% data variables.product.github %}-hosted runners, see [AUTOTITLE](/authentication/keeping-your-account-and-data-secure/about-githubs-ip-addresses).
+
+For runners using multi-cloud compute, policies that allow only Azure or Microsoft-owned IP ranges can block connections or authentication, including through Microsoft Entra Conditional Access. Keep network policies in sync with all published runner IP ranges. See [IP addresses](/actions/reference/runners/github-hosted-runners#ip-addresses).
 
 Static IP addresses are available for use with {% data variables.product.github %}-hosted larger runners. See [AUTOTITLE](/actions/how-tos/manage-runners/larger-runners/manage-larger-runners) for more information.
 {% endif %}
